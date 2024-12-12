@@ -178,3 +178,253 @@ db.sales.aggregate([
 
 //Gintli Máté B11-B20 + I4-I5
 
+//B11. Retrieve the sale_id, product_id, and total_price from the Sales table for sales with a quantity_sold greater than 4.
+// SELECT sale_id, product_id, total_price 
+// FROM Sales 
+// WHERE quantity_sold > 4;
+db.sales.find({
+    quantity_sold: { $gt: 4 }
+  }, {
+    sale_id: 1,
+    product_id: 1,
+    total_price: 1,
+    _id: 0
+  });
+
+//B12. Retrieve the product_name and unit_price from the Products table, ordering the results by unit_price in descending order.
+// SELECT product_name, unit_price 
+// FROM Products 
+// ORDER BY unit_price DESC;
+db.products.find({}, {
+    product_name: 1,
+    unit_price: 1,
+    _id: 0
+  }).sort({
+    unit_price: -1
+  });
+
+//B13. Retrieve the total_price of all sales, rounding the values to two decimal places.
+// SELECT ROUND(SUM(total_price), 2) AS total_sales 
+// FROM Sales;
+db.sales.aggregate([
+    {
+      $group: {
+        _id: null,
+        total_sales: { $sum: "$total_price" }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        total_sales: { $round: ["$total_sales", 2] }
+      }
+    }
+  ]);
+
+//B14. Calculate the average total_price of sales in the Sales table.
+// SELECT AVG(total_price) AS average_total_price 
+// FROM Sales;
+db.sales.aggregate([
+    {
+      $group: {
+        _id: null,
+        average_total_price: { $avg: "$total_price" }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        average_total_price: 1
+      }
+    }
+  ]);
+
+//B15. Retrieve the sale_id and sale_date from the Sales table, formatting the sale_date as 'YYYY-MM-DD'.
+// SELECT sale_id, DATE_FORMAT(sale_date, '%Y-%m-%d') AS formatted_date 
+// FROM Sales;
+db.sales.aggregate([
+    {
+      $project: {
+        sale_id: 1,
+        formatted_date: {
+          $dateToString: { format: "%Y-%m-%d", date: "$sale_date" }
+        },
+        _id: 0
+      }
+    }
+  ]);
+
+//B16. Calculate the total revenue generated from sales of products in the 'Electronics' category
+// SELECT SUM(Sales.total_price) AS total_revenue 
+// FROM Sales 
+// JOIN Products ON Sales.product_id = Products.product_id 
+// WHERE Products.category = 'Electronics';
+db.sales.aggregate([
+    {
+      $lookup: {
+        from: "products",
+        localField: "product_id",
+        foreignField: "product_id",
+        as: "product_details"
+      }
+    },
+    {
+      $unwind: "$product_details"
+    },
+    {
+      $match: {
+        "product_details.category": "Electronics"
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        total_revenue: { $sum: "$total_price" }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        total_revenue: 1
+      }
+    }
+  ]);
+
+//B17. Retrieve the product_name and unit_price from the Products table, filtering the unit_price to show only values between $20 and $600.
+db.products.find({
+    unit_price: { $gte: 20, $lte: 600 }
+  }, {
+    product_name: 1,
+    unit_price: 1,
+    _id: 0
+  });
+
+//B18.Retrieve the product_name and category from the Products table, ordering the results by category in ascending order.
+// SELECT product_name, category 
+// FROM Products 
+// ORDER BY category ASC;
+db.products.find({}, {
+    product_name: 1,
+    category: 1,
+    _id: 0
+  }).sort({
+    category: 1
+  });
+
+//19. Calculate the total quantity_sold of products in the 'Electronics' category.
+// SELECT SUM(quantity_sold) AS total_quantity_sold 
+// FROM Sales 
+// JOIN Products ON Sales.product_id = Products.product_id 
+// WHERE Products.category = 'Electronics';
+db.sales.aggregate([
+    {
+      $lookup: {
+        from: "products",
+        localField: "product_id",
+        foreignField: "product_id",
+        as: "product_details"
+      }
+    },
+    {
+      $unwind: "$product_details"
+    },
+    {
+      $match: {
+        "product_details.category": "Electronics"
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        total_quantity_sold: { $sum: "$quantity_sold" }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        total_quantity_sold: 1
+      }
+    }
+  ]);
+
+//20. Retrieve the product_name and total_price from the Sales table, calculating the total_price as quantity_sold multiplied by unit_price.
+// SELECT product_name, quantity_sold * unit_price AS total_price 
+// FROM Sales 
+// JOIN Products ON Sales.product_id = Products.product_id;
+db.sales.aggregate([
+    {
+      $lookup: {
+        from: "products",
+        localField: "product_id",
+        foreignField: "product_id",
+        as: "product_details"
+      }
+    },
+    {
+      $unwind: "$product_details"
+    },
+    {
+      $project: {
+        product_name: "$product_details.product_name",
+        total_price: { $multiply: ["$quantity_sold", "$product_details.unit_price"] },
+        _id: 0
+      }
+    }
+  ]);
+
+//I4.Count the number of sales made in each month.
+// SELECT DATE_FORMAT(s.sale_date, '%Y-%m') AS month, COUNT(*) AS sales_count
+// FROM Sales s
+// GROUP BY month;
+db.sales.aggregate([
+    {
+      $group: {
+        _id: { $dateToString: { format: "%Y-%m", date: "$sale_date" } },
+        sales_count: { $sum: 1 }
+      }
+    },
+    {
+      $project: {
+        month: "$_id",
+        sales_count: 1,
+        _id: 0
+      }
+    }
+  ]);
+  
+
+//I5.Determine the average quantity sold for products with a unit price greater than $100.
+// SELECT AVG(s.quantity_sold) AS average_quantity_sold
+// FROM Sales s
+// JOIN Products p ON s.product_id = p.product_id
+// WHERE p.unit_price > 100;
+db.sales.aggregate([
+    {
+      $lookup: {
+        from: "products",
+        localField: "product_id",
+        foreignField: "product_id",
+        as: "product_details"
+      }
+    },
+    {
+      $unwind: "$product_details"
+    },
+    {
+      $match: {
+        "product_details.unit_price": { $gt: 100 }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        average_quantity_sold: { $avg: "$quantity_sold" }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        average_quantity_sold: 1
+      }
+    }
+  ]);
